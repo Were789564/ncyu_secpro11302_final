@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>留言板 - SecureWeb</title>
+</head>
+<body>
+    {% extends "base.html" %}
+
+    {% block title %}留言板 - SecureWeb{% endblock %}
+
+    {% block content %}
+    <div class="card" style="max-width: 800px;">
+        <h2 style="text-align: center; margin-bottom: 2rem; color: #333;">💬 公開留言板</h2>
+        <p style="text-align: center; color: #666; margin-bottom: 2rem;">
+            歡迎 <strong>{{ username }}</strong>！在此分享您的想法，所有用戶都可以看到您的留言。
+        </p>
+        
+        <form method="POST" style="margin-bottom: 2rem;">
+            <div class="form-group">
+                <label for="message">留言內容</label>
+                <textarea id="message" name="message" rows="4" 
+                         placeholder="分享您的想法、連結、或任何內容..." required></textarea>
+                <small style="color: #666;">支援 HTML 格式，讓您的留言更豐富！留言將永久保存在資料庫中。</small>
+            </div>
+            
+            <button type="submit" class="btn">發布留言</button>
+        </form>
+        
+        <div style="background: #e3f2fd; padding: 1rem; border-radius: 10px; margin-bottom: 2rem;">
+            <h4 style="color: #1976d2; margin-bottom: 0.5rem;">🔒 安全提醒</h4>
+            <p style="color: #333; font-size: 0.9rem;">
+                此留言板支援 HTML 內容以提供更好的使用體驗。所有留言和用戶資料都會永久保存在資料庫中。
+            </p>
+        </div>
+        
+        <h3 style="color: #333; margin-bottom: 1rem;">
+            📝 所有留言 <span style="font-size: 0.8rem; color: #666;">({{ comments|length }} 則留言)</span>
+            {% if username == 'admin' %}
+                <br>
+                <small>
+                    <a href="/admin/comments" style="color: #007bff; text-decoration: none;">[查看留言資料庫]</a> | 
+                    <a href="/admin/users" style="color: #007bff; text-decoration: none;">[查看用戶資料庫]</a>
+                </small>
+            {% endif %}
+        </h3>
+        
+        {% if comments %}
+            {% for comment in comments %}
+                <div class="comment-item">
+                    <div class="comment-user">
+                        👤 {{ comment.username }} 
+                        <span style="font-size: 0.8rem; color: #888; font-weight: normal;">
+                            - {{ comment.created_at }}
+                        </span>
+                    </div>
+                    <!-- 故意的 Stored XSS 漏洞：從資料庫讀取未過濾的 HTML 內容 -->
+                    <div style="margin-top: 0.5rem; line-height: 1.5;">
+                        {{ comment.message|safe }}
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div style="text-align: center; padding: 2rem; color: #666; background: #f8f9fa; border-radius: 10px;">
+                <p>📭 目前沒有留言</p>
+                <p style="font-size: 0.9rem; margin-top: 0.5rem;">成為第一個發布留言的用戶吧！</p>
+            </div>
+        {% endif %}
+        
+        <div style="margin-top: 2rem; padding: 1rem; background: #fff3cd; border-radius: 10px; border-left: 4px solid #ffc107;">
+            <h4 style="color: #856404; margin-bottom: 0.5rem;">⚠️ Stored XSS 說明</h4>
+            <p style="color: #856404; font-size: 0.9rem;">
+                此留言板有 Stored XSS 漏洞，以下是預期demo的內容。
+            </p>
+            <ul style="color: #856404; font-size: 0.9rem; margin-top: 0.5rem; padding-left: 1.5rem;">
+                <li>利用XSS讓使用者把自己的CSRF token一起帶進去，然後把密碼給改掉</li>
+                <li>用JShell工具讓攻擊者可以操作Web Shell (KeyLogger、重新定向)</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+    // 添加一些 JavaScript 來增強演示效果
+    document.addEventListener('DOMContentLoaded', function() {
+        // 高亮顯示可能的腳本標籤（用於教學）
+        const comments = document.querySelectorAll('.comment-item div:last-child');
+        comments.forEach(comment => {
+            if (comment.innerHTML.includes('<script>') || comment.innerHTML.includes('<img') || comment.innerHTML.includes('<svg')) {
+                comment.style.border = '2px dashed #e74c3c';
+                comment.style.padding = '0.5rem';
+                comment.style.marginTop = '0.5rem';
+                comment.style.backgroundColor = '#ffeaea';
+                
+                // 添加警告標籤
+                const warning = document.createElement('small');
+                warning.innerHTML = '⚠️ 此留言包含可能的惡意腳本';
+                warning.style.color = '#e74c3c';
+                warning.style.fontWeight = 'bold';
+                warning.style.display = 'block';
+                warning.style.marginBottom = '0.5rem';
+                comment.insertBefore(warning, comment.firstChild);
+            }
+        });
+    });
+    </script>
+    {% endblock %}
+</body>
+</html>

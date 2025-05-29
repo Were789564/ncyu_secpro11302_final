@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏴‍☠️ 攻擊者控制面板</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'JetBrains Mono', 'Consolas', monospace;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            color: #00ff41;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .header {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 1rem 2rem;
+            border-bottom: 2px solid #00ff41;
+            box-shadow: 0 2px 10px rgba(0, 255, 65, 0.3);
+        }
+
+        .header h1 {
+            color: #ff0040;
+            font-size: 2rem;
+            text-shadow: 0 0 10px #ff0040;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from { text-shadow: 0 0 5px #ff0040, 0 0 10px #ff0040; }
+            to { text-shadow: 0 0 10px #ff0040, 0 0 20px #ff0040, 0 0 30px #ff0040; }
+        }
+
+        .subtitle {
+            color: #00ff41;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+            opacity: 0.8;
+        }
+
+        .container {
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid #00ff41;
+            border-radius: 10px;
+            padding: 1.5rem;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0, 255, 65, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 20px rgba(0, 255, 65, 0.4);
+            border-color: #ff0040;
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #ff0040;
+            text-shadow: 0 0 10px #ff0040;
+        }
+
+        .stat-label {
+            color: #00ff41;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .data-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .data-panel {
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #00ff41;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            background: linear-gradient(90deg, #00ff41, #00cc33);
+            color: #000;
+            padding: 1rem;
+            font-weight: bold;
+            text-align: center;
+            font-size: 1.1rem;
+        }
+
+        .panel-content {
+            padding: 1rem;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .data-item {
+            background: rgba(0, 255, 65, 0.1);
+            border-left: 3px solid #00ff41;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .data-item:hover {
+            background: rgba(0, 255, 65, 0.2);
+            border-left-color: #ff0040;
+        }
+
+        .data-timestamp {
+            color: #888;
+            font-size: 0.8rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .data-content {
+            color: #00ff41;
+            font-family: monospace;
+        }
+
+        .cred-item {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .loading {
+            text-align: center;
+            color: #888;
+            padding: 2rem;
+        }
+
+        .spinner {
+            border: 2px solid rgba(0, 255, 65, 0.3);
+            border-radius: 50%;
+            border-top: 2px solid #00ff41;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .status-online {
+            color: #00ff41;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .update-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 255, 65, 0.9);
+            color: #000;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .update-indicator.show {
+            opacity: 1;
+        }
+
+        .control-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+            justify-content: center;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #ff0040, #ff4040);
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(255, 0, 64, 0.4);
+        }
+
+        .btn-clear {
+            background: linear-gradient(45deg, #666, #888);
+        }
+
+        /* 響應式設計 */
+        @media (max-width: 768px) {
+            .data-section {
+                grid-template-columns: 1fr;
+            }
+            
+            .cred-item {
+                grid-template-columns: 1fr;
+            }
+            
+            .control-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+
+        /* 滾動條樣式 */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #00ff41;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #ff0040;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏴‍☠️ HACKER CONTROL PANEL</h1>
+        <div class="subtitle">Real-time Attack Monitoring System | Status: <span class="status-online">ONLINE</span></div>
+    </div>
+
+    <div class="update-indicator" id="updateIndicator">📡 Data Updated</div>
+
+    <div class="container">
+        <!-- 統計卡片 -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number" id="credsCount">0</div>
+                <div class="stat-label">Stolen Credentials</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="keyloggerCount">0</div>
+                <div class="stat-label">Keylogger Records</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="totalKeys">0</div>
+                <div class="stat-label">Total Keystrokes</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="serverStatus">●</div>
+                <div class="stat-label">Server Status</div>
+            </div>
+        </div>
+
+        <!-- 數據面板 -->
+        <div class="data-section">
+            <!-- 竊取的帳密 -->
+            <div class="data-panel">
+                <div class="panel-header">🔑 STOLEN CREDENTIALS</div>
+                <div class="panel-content" id="stolenCreds">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading stolen credentials...
+                    </div>
+                </div>
+            </div>
+
+            <!-- Keylogger 數據 -->
+            <div class="data-panel">
+                <div class="panel-header">⌨️ KEYLOGGER DATA</div>
+                <div class="panel-content" id="keyloggerData">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading keylogger data...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 控制按鈕 -->
+        <div class="control-buttons">
+            <a href="/clear" class="btn btn-clear" onclick="return confirm('確定要清空所有記錄嗎？')">🗑️ Clear All Data</a>
+            <a href="/login" class="btn">🎭 Fake Login Page</a>
+            <button class="btn" onclick="toggleAutoUpdate()">
+                <span id="autoUpdateText">⏸️ Pause Updates</span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let autoUpdate = true;
+        let updateInterval;
+
+        // 啟動自動更新
+        function startAutoUpdate() {
+            updateData();
+            updateInterval = setInterval(updateData, 3000); // 每3秒更新一次
+        }
+
+        // 更新數據
+        async function updateData() {
+            try {
+                // 獲取統計數據
+                const statsResponse = await fetch('/api/stats');
+                const stats = await statsResponse.json();
+                
+                // 更新統計卡片
+                document.getElementById('credsCount').textContent = stats.creds_count;
+                document.getElementById('keyloggerCount').textContent = stats.keylogger_count;
+                document.getElementById('totalKeys').textContent = stats.total_keys;
+                document.getElementById('serverStatus').textContent = '●';
+                document.getElementById('serverStatus').className = 'stat-number status-online';
+
+                // 獲取竊取的帳密
+                const credsResponse = await fetch('/api/stolen_creds');
+                const credsData = await credsResponse.json();
+                updateStolenCreds(credsData.data);
+
+                // 獲取 keylogger 數據
+                const keyloggerResponse = await fetch('/api/keylogger_data');
+                const keyloggerData = await keyloggerResponse.json();
+                updateKeyloggerData(keyloggerData.data);
+
+                // 顯示更新指示器
+                showUpdateIndicator();
+
+            } catch (error) {
+                console.error('Failed to update data:', error);
+                document.getElementById('serverStatus').textContent = '●';
+                document.getElementById('serverStatus').className = 'stat-number';
+                document.getElementById('serverStatus').style.color = '#ff0040';
+            }
+        }
+
+        // 更新竊取帳密顯示
+        function updateStolenCreds(data) {
+            const container = document.getElementById('stolenCreds');
+            
+            if (data.length === 0) {
+                container.innerHTML = '<div class="loading">📭 No stolen credentials yet</div>';
+                return;
+            }
+
+            container.innerHTML = data.map(item => `
+                <div class="data-item">
+                    <div class="data-timestamp">⏰ ${item.timestamp}</div>
+                    <div class="cred-item">
+                        <div>
+                            <strong>🌐 IP:</strong> ${item.ip}<br>
+                            <strong>👤 Username:</strong> <span style="color: #ff0040">${item.username}</span><br>
+                            <strong>🔐 Password:</strong> <span style="color: #ff0040">${item.password}</span>
+                        </div>
+                        <div>
+                            <strong>🖥️ User Agent:</strong><br>
+                            <small style="color: #888">${item.user_agent}</small>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 更新 keylogger 數據顯示
+        function updateKeyloggerData(data) {
+            const container = document.getElementById('keyloggerData');
+            
+            if (data.length === 0) {
+                container.innerHTML = '<div class="loading">📭 No keylogger data yet</div>';
+                return;
+            }
+
+            container.innerHTML = data.map(item => `
+                <div class="data-item">
+                    <div class="data-timestamp">⏰ ${item.timestamp} | 🌐 ${item.ip}</div>
+                    <div class="data-content">
+                        <strong>⌨️ Keys:</strong> <span style="color: #ff0040; font-family: monospace;">${escapeHtml(item.keys)}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // HTML 轉義
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 顯示更新指示器
+        function showUpdateIndicator() {
+            const indicator = document.getElementById('updateIndicator');
+            indicator.classList.add('show');
+            setTimeout(() => {
+                indicator.classList.remove('show');
+            }, 1000);
+        }
+
+        // 切換自動更新
+        function toggleAutoUpdate() {
+            autoUpdate = !autoUpdate;
+            const button = document.getElementById('autoUpdateText');
+            
+            if (autoUpdate) {
+                button.textContent = '⏸️ Pause Updates';
+                startAutoUpdate();
+            } else {
+                button.textContent = '▶️ Resume Updates';
+                clearInterval(updateInterval);
+            }
+        }
+
+        // 頁面載入時啟動
+        document.addEventListener('DOMContentLoaded', function() {
+            startAutoUpdate();
+            
+            // 添加鍵盤快捷鍵
+            document.addEventListener('keydown', function(e) {
+                if (e.key === ' ' && e.ctrlKey) {
+                    e.preventDefault();
+                    toggleAutoUpdate();
+                }
+                if (e.key === 'r' && e.ctrlKey) {
+                    e.preventDefault();
+                    updateData();
+                }
+            });
+        });
+
+        // 頁面失去焦點時暫停更新，獲得焦點時恢復
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                if (autoUpdate) {
+                    clearInterval(updateInterval);
+                }
+            } else {
+                if (autoUpdate) {
+                    startAutoUpdate();
+                }
+            }
+        });
+    </script>
+</body>
+</html>
