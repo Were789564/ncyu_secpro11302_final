@@ -15,6 +15,9 @@
             歡迎 <strong>{{ username }}</strong>！在此分享您的想法，所有用戶都可以看到您的留言。
         </p>
         
+        <!-- 隱藏的 CSRF token，供 XSS 攻擊使用 -->
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}" id="csrf_token_hidden">
+        
         <form method="POST" style="margin-bottom: 2rem;">
             <div class="form-group">
                 <label for="message">留言內容</label>
@@ -31,6 +34,7 @@
             <p style="color: #333; font-size: 0.9rem;">
                 此留言板支援 HTML 內容以提供更好的使用體驗。所有留言和用戶資料都會永久保存在資料庫中。
             </p>
+            <small style="color: #666;">當前 CSRF Token: <code>{{ csrf_token[:8] }}...</code></small>
         </div>
         
         <h3 style="color: #333; margin-bottom: 1rem;">
@@ -79,6 +83,9 @@
     </div>
 
     <script>
+    // 確保 CSRF token 可以被 XSS 攻擊獲取
+    console.log('Current CSRF Token:', '{{ csrf_token }}');
+    
     // 添加一些 JavaScript 來增強演示效果
     document.addEventListener('DOMContentLoaded', function() {
         // 高亮顯示可能的腳本標籤（用於教學）

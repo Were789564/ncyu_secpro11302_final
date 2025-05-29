@@ -157,9 +157,15 @@
                 {% if session.username %}
                     <a href="/comment">留言板</a>
                     <a href="/account">帳號設定</a>
+                    {% if session.username == 'admin' %}
+                        <a href="/fetch">URL 獲取</a>
+                    {% endif %}
                     <a href="/logout">登出</a>
                     <span style="color: rgba(255,255,255,0.8); margin-left: 1rem;">
                         歡迎 {{ session.username }}
+                        {% if session.username == 'admin' %}
+                            <span style="color: #ffd700;">👑</span>
+                        {% endif %}
                     </span>
                 {% else %}
                     <a href="/login">登入</a>
