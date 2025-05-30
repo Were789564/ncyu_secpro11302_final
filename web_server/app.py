@@ -188,6 +188,19 @@ def fetch():
         <p><a href="/comment">返回留言板</a></p>
         '''.format(session['username']), 403
     
+    # 檢查是否只有 path 參數
+    allowed_params = {'path'}
+    received_params = set(request.args.keys())
+    
+    if received_params - allowed_params:
+        invalid_params = received_params - allowed_params
+        return f"""
+        <h1>❌ 參數錯誤</h1>
+        <p>此端點只接受 'path' 參數</p>
+        <p>不被允許的參數: <strong>{', '.join(invalid_params)}</strong></p>
+        <p><a href="/fetch">返回 Fetch 工具</a></p>
+        """, 400
+    
     path = request.args.get("path")
     
     if not path:
@@ -242,6 +255,27 @@ def fetch():
             <pre style="background: #f8f9fa; padding: 1rem; border-radius: 5px; overflow-x: auto; white-space: pre-wrap;">{response.text}</pre>
             <p><a href="/fetch">返回 Fetch 工具</a> | <a href="/comment">返回留言板</a></p>
             """
+            
+    except requests.exceptions.ConnectionError:
+        return f"""
+        <h1>❌ 連接錯誤</h1>
+        <p>無法連接到: <strong>{path}</strong></p>
+        <p>可能原因：目標服務未運行或網路問題</p>
+        <p><a href="/fetch">返回 Fetch 工具</a></p>
+        """, 500
+    except requests.exceptions.Timeout:
+        return f"""
+        <h1>⏰ 請求超時</h1>
+        <p>請求超時: <strong>{path}</strong></p>
+        <p><a href="/fetch">返回 Fetch 工具</a></p>
+        """, 500
+    except Exception as e:
+        return f"""
+        <h1>💥 發生錯誤</h1>
+        <p>錯誤信息: <strong>{str(e)}</strong></p>
+        <p>URL: <strong>{path}</strong></p>
+        <p><a href="/fetch">返回 Fetch 工具</a></p>
+        """, 500
             
     except requests.exceptions.ConnectionError:
         return f"""

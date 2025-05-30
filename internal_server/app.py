@@ -223,4 +223,4 @@ if __name__ == "__main__":
     print("⚠️  此服務僅限內部訪問")
     print("📊 包含敏感的員工、財務和系統資料")
     print("🚨 SQL Debug 端點: /sql_debug?query=YOUR_QUERY")
-    app.run(host="127.0.0.1", port=8080, debug=False)  # 只監聽 localhost
+    app.run(host="0.0.0.0", port=8080, debug=False)  # 只監聽 localhost
